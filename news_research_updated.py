@@ -1,16 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Nov  4 16:03:14 2025
 
-@author: adity
-"""
-
-
-# app.py
-# -- coding: utf-8 --
-"""
-AI News & Document Research Tool with RAG, BM25, Cosine Similarity, and Summarization
-Includes RAG-powered Q&A on fetched articles (NewsAPI & Google Search)"""
+#AI News & Document Research Tool with RAG, BM25, Cosine Similarity, and Summarization Includes RAG-powered Q&A on fetched articles (NewsAPI & Google Search)
 
 import os
 import re
@@ -59,7 +48,7 @@ except Exception:
                "Please run 'python -m spacy download en_core_web_sm' in your terminal.")
 
 
-# ----------------------------- Utility Functions -----------------------------
+
 
 def extract_text_from_pdf(file_path):
     text = ""
@@ -76,17 +65,17 @@ def extract_text_from_docx(file_path):
 
 
 def summarize_text(text, max_words=250):
-    # fallback simple summarizer using LSA via sumy
+    
     try:
         parser = PlaintextParser.from_string(text, Tokenizer("english"))
         summarizer = LsaSummarizer()
-        # choose sentences_count heuristically
+       
         sentences_count = min(8, max(1, int(len(parser.document.sentences) * 0.15)))
         summary = summarizer(parser.document, sentences_count=sentences_count)
         summary_text = " ".join(str(s) for s in summary)
         return " ".join(summary_text.split()[:max_words])
     except Exception:
-        # last resort: return first max_words tokens
+        
         return " ".join(text.split()[:max_words])
 
 
@@ -114,7 +103,7 @@ def extract_document_metadata(text: str) -> Dict[str, Any]:
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
-# ----------------------------- Structured Output -----------------------------
+
 
 def structured_output(result: Dict[str, Any], format_type: str = "json") -> str:
     """
@@ -162,7 +151,7 @@ def extract_named_entities(text: str) -> Dict[str, List[str]]:
     return entities
 
 
-# ----------------------------- News & Google Search -----------------------------
+#  News & Google Search 
 
 def fetch_newsapi_articles(api_key, query, from_date=None, to_date=None, language="en", page_size=10):
     url = "https://newsapi.org/v2/everything"
@@ -189,12 +178,11 @@ def fetch_google_search(api_key, cx, query, num=10):
     r = requests.get(url, params=params)
     return r.json().get("items", [])
 
-# ----------------------------- Ranking -----------------------------
+#  Ranking 
 
 def rank_documents(docs, query):
-    # docs: list of dicts with "content" (string) at least
     corpus = [d.get("content", "") for d in docs]
-    # BM25
+   
     tokenized_corpus = [c.split() for c in corpus]
     if any(tokenized_corpus):
         bm25 = BM25Okapi(tokenized_corpus)
@@ -202,7 +190,7 @@ def rank_documents(docs, query):
     else:
         bm25_scores = np.zeros(len(docs))
 
-    # Cosine similarity via TF-IDF
+    
     try:
         vectorizer = TfidfVectorizer()
         tfidf_matrix = vectorizer.fit_transform(corpus + [query])
@@ -218,7 +206,7 @@ def rank_documents(docs, query):
     docs = sorted(docs, key=lambda x: (x.get("bm25_score", 0) + x.get("cosine_score", 0)), reverse=True)
     return docs
 
-# ----------------------------- GenAI: Context Caching & Embeddings -----------------------------
+
 
 @st.cache_resource(show_spinner=False)
 def get_embedder():
@@ -232,14 +220,14 @@ def _hash_text(text: str) -> str:
 @dataclass
 class VectorIndex:
     chunks: List[str]
-    embeddings: np.ndarray  # [N, d]
+    embeddings: np.ndarray  
 
 
-# session stores
+
 if "vector_store" not in st.session_state:
-    st.session_state["vector_store"] = {}       # doc_hash -> VectorIndex
+    st.session_state["vector_store"] = {}      
 if "article_index_map" not in st.session_state:
-    st.session_state["article_index_map"] = {} # article_id -> {"text":..., "hash":...}
+    st.session_state["article_index_map"] = {} 
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
 
@@ -281,7 +269,7 @@ def retrieve_top_k(query: str, index: VectorIndex, k: int = 5) -> List[Dict[str,
     top_ids = np.argsort(-scores)[:k]
     return [{"chunk": index.chunks[i], "score": float(scores[i])} for i in top_ids]
 
-# ----------------------------- RAG Pipeline -----------------------------
+#  RAG Pipeline 
 
 def rag_summarize(text: str, user_goal="Provide a concise summary.", k=6, max_words=220):
     try:
@@ -303,7 +291,7 @@ def rag_qa(text: str, question: str, k=5, max_words=160):
     except Exception as e:
         return f"[RAG-QA] Failed: {e}"
 
-# ----------------------------- Few-shot Prompting (NEW) -----------------------------
+
 
 def rag_qa_fewshot(text: str, question: str, examples: List[Dict[str, str]], k=5, max_words=160):
     """
@@ -319,7 +307,7 @@ def rag_qa_fewshot(text: str, question: str, examples: List[Dict[str, str]], k=5
     except Exception as e:
         return f"[Few-shot RAG-QA] Failed: {e}"
 
-# ----------------------------- Document Typing & Agentic Pipelines -----------------------------
+# Document Typing & Agentic Pipelines 
 
 def detect_doc_type(text: str) -> str:
     t = text.lower()
@@ -339,7 +327,7 @@ def agentic_pipeline(text: str, task: str, question=""):
         out["answer"] = rag_qa(text, question)
     return out
 
-# Multi-step Agent (NEW)
+
 def agentic_multistep(text: str, question: str = "") -> Dict[str, Any]:
     """
     Multi-step: detect -> summarize -> metadata -> optional Q&A.
@@ -351,7 +339,7 @@ def agentic_multistep(text: str, question: str = "") -> Dict[str, Any]:
         out["answer"] = rag_qa(text, question)
     return out
 
-# ----------------------------- Vector Search (NEW) -----------------------------
+#  Vector Search
 
 def search_across_documents(query: str, top_k=5):
     """
@@ -374,18 +362,18 @@ def search_across_documents(query: str, top_k=5):
             })
     return sorted(results, key=lambda x: -x["score"])[:top_k]
 
-# ----------------------------- Knowledge Graph (Lightweight, NEW) -----------------------------
+#  Knowledge Graph 
 
 def extract_entities(text: str) -> List[str]:
     """
     Very lightweight 'entity' extraction:
     - Proper-like tokens (Capitalized words) and long all-caps tokens.
     """
-    # Grab capitalized words or acronyms, filter common stop words
+    
     tokens = re.findall(r'\b([A-Z][a-zA-Z]+|[A-Z]{2,})\b', text)
     stops = {"The","And","For","With","From","This","That","In","On","Of","A","An","To","By","As","At","Be","It"}
     ents = [t for t in tokens if t not in stops and len(t) > 1]
-    # Deduplicate while preserving order
+   
     seen, out = set(), []
     for e in ents:
         if e not in seen:
@@ -414,7 +402,7 @@ def knowledge_graph_from_text(text: str) -> Dict[str, Any]:
     edge_list = [{"source": a, "target": b, "weight": w} for (a, b), w in sorted(edges.items(), key=lambda kv: -kv[1])][:200]
     return {"nodes": node_list, "edges": edge_list}
 
-# ----------------------------- Cache Controls (NEW) -----------------------------
+
 
 def clear_vector_cache():
     st.session_state["vector_store"].clear()
@@ -424,7 +412,7 @@ def cache_status():
     num_chunks = sum(len(v.chunks) for v in st.session_state["vector_store"].values())
     return {"documents_indexed": num_docs, "total_chunks": num_chunks}
 
-# ----------------------------- Chatbot -----------------------------
+#  Chatbot 
 
 def chatbot_ui(loaded_text: str, output_format: str = "text"):
     st.subheader("💬 Chat with Document (RAG)")
@@ -450,12 +438,11 @@ def chatbot_ui(loaded_text: str, output_format: str = "text"):
                     display = ans
         st.session_state["chat_history"].append({"role": "assistant", "content": display})
 
-# ----------------------------- Streamlit UI -----------------------------
+# Streamlit UI 
 
 st.set_page_config(layout="wide")
 st.title("📰 AI News & Document Research Tool — RAG & Q&A Enabled")
 
-# Sidebar global controls
 st.sidebar.title("Options")
 mode = st.sidebar.radio("Choose Mode", [
     "Upload Document (LSA Summarizer)",
@@ -463,11 +450,11 @@ mode = st.sidebar.radio("Choose Mode", [
     "Google Search",
     "Upload & RAG Summary",
     "Chat with Document (RAG)",
-    "Vector Search (All Indexed)",         # NEW
-    "Agentic Multi-step Analysis",          # NEW
-    "Few-shot RAG Q&A",                     # NEW
-    "Knowledge Graph (Lightweight)",         # NEW
-    "Named Entity Recognition (NER)"         # NEW
+    "Vector Search (All Indexed)",         
+    "Agentic Multi-step Analysis",          
+    "Few-shot RAG Q&A",                     
+    "Knowledge Graph (Lightweight)",         
+    "Named Entity Recognition (NER)"         
 ])
 
 st.sidebar.markdown("---")
@@ -485,7 +472,7 @@ with colC2:
         clear_vector_cache()
         st.sidebar.success("Cleared vector cache.")
 
-# ---------------- Document Upload + LSA ----------------
+# Document Upload + LSA 
 if mode == "Upload Document (LSA Summarizer)":
     uploaded = st.file_uploader("Upload PDF/DOCX/TXT", type=["pdf", "docx", "txt"])
     if uploaded:
@@ -515,10 +502,10 @@ if mode == "Upload Document (LSA Summarizer)":
                 st.subheader("Metadata")
                 st.json(meta)
         st.session_state["last_doc_text"] = content
-        # Index the uploaded doc immediately for cross-doc search
+        
         build_vector_index(content)
 
-# ---------------- Fetch News ----------------
+# Fetch News 
 elif mode == "Fetch News":
     query = st.text_input("Search Query (NewsAPI)")
     api_key = st.text_input("NewsAPI Key", type="password")
@@ -526,9 +513,9 @@ elif mode == "Fetch News":
     if st.button("Fetch News") and api_key and query:
         articles = fetch_newsapi_articles(api_key, query, page_size=page_size)
         docs = []
-        st.session_state["article_index_map"] = {}  # reset map for this query session
+        st.session_state["article_index_map"] = {} 
         for i, a in enumerate(articles):
-            # prefer full article extraction
+            
             url = a.get("url", "")
             full_text = extract_article_content(url) if url else None
             content = full_text or (a.get("content") or a.get("description") or "")
@@ -543,7 +530,7 @@ elif mode == "Fetch News":
                 "publishedAt": a.get("publishedAt")
             })
             st.session_state["article_index_map"][article_id] = {"text": content, "hash": _hash_text(content)}
-            # Immediately index for vector search
+            
             build_vector_index(content)
 
         ranked = rank_documents(docs, query)
@@ -553,7 +540,7 @@ elif mode == "Fetch News":
             with st.expander(f"🔎 {art['title']}"):
                 st.markdown(f"Source: {art.get('url','N/A')}")
                 st.write(art.get("content")[:2000] + ("..." if len(art.get("content",""))>2000 else ""))
-                # buttons: RAG Summarize, ask question
+                
                 col1, col2 = st.columns([1,2])
                 with col1:
                     if st.button(f"RAG Summarize {aid}", key=f"rag_sum_{aid}"):
@@ -581,7 +568,7 @@ elif mode == "Fetch News":
                             else:
                                 st.success(ans)
 
-# ---------------- Google Search ----------------
+# Google Search 
 elif mode == "Google Search":
     query = st.text_input("Search Query (Google Custom Search)")
     api_key = st.text_input("Google API Key", type="password")
@@ -598,7 +585,7 @@ elif mode == "Google Search":
             aid = f"google_{i}"
             docs.append({"id": aid, "title": it.get("title",""), "content": content, "url": url})
             st.session_state["article_index_map"][aid] = {"text": content, "hash": _hash_text(content)}
-            # Index for vector search
+            
             build_vector_index(content)
 
         ranked = rank_documents(docs, query)
@@ -635,7 +622,7 @@ elif mode == "Google Search":
                             else:
                                 st.success(ans)
 
-# ---------------- RAG Summary ----------------
+#  RAG Summary 
 elif mode == "Upload & RAG Summary":
     uploaded = st.file_uploader("Upload Document (pdf/docx/txt)", type=["pdf", "docx", "txt"])
     doc_type = st.selectbox("Select doc type (helps guidance)", ["general", "contract", "policy", "research"])
@@ -664,14 +651,14 @@ elif mode == "Upload & RAG Summary":
         st.session_state["last_doc_text"] = content
         build_vector_index(content)
 
-# ---------------- Chatbot ----------------
+#  Chatbot 
 elif mode == "Chat with Document (RAG)":
     if "last_doc_text" in st.session_state:
         chatbot_ui(st.session_state["last_doc_text"], output_format=out_fmt)
     else:
         st.warning("Please upload a document first in 'Upload & RAG Summary' mode.")
 
-# ---------------- Vector Search (All Indexed) ----------------
+# Vector Search 
 elif mode == "Vector Search (All Indexed)":
     q = st.text_input("🔍 Enter a semantic search query")
     top_k = st.slider("Top K", 1, 15, 5)
@@ -682,7 +669,7 @@ elif mode == "Vector Search (All Indexed)":
             st.write(f"Score: {r['score']:.3f} — Doc Hash: {r['doc_hash']}")
             st.info(r["chunk"])
 
-# ---------------- Agentic Multi-step Analysis (NEW) ----------------
+# Agentic Multi-step Analysis 
 elif mode == "Agentic Multi-step Analysis":
     if "last_doc_text" not in st.session_state:
         st.warning("Please upload a document first in 'Upload & RAG Summary' mode.")
@@ -698,7 +685,7 @@ elif mode == "Agentic Multi-step Analysis":
                 else:
                     st.json(result)
 
-# ---------------- Few-shot RAG Q&A (NEW) ----------------
+# Few-shot RAG Q&A 
 elif mode == "Few-shot RAG Q&A":
     if "last_doc_text" not in st.session_state:
         st.warning("Please upload a document first in 'Upload & RAG Summary' mode.")
@@ -726,7 +713,7 @@ elif mode == "Few-shot RAG Q&A":
                 else:
                     st.success(ans)
 
-# ---------------- Knowledge Graph (NEW) ----------------
+# Knowledge Graph 
 elif mode == "Knowledge Graph (Lightweight)":
     if "last_doc_text" not in st.session_state:
         st.warning("Please upload a document first in 'Upload & RAG Summary' mode.")
@@ -736,7 +723,7 @@ elif mode == "Knowledge Graph (Lightweight)":
         st.code(json.dumps(kg, indent=2, ensure_ascii=False), language="json")
         st.info("Tip: Export this JSON to visualize with tools like D3, Cytoscape, or Gephi.")
         
-# ---------------- Named Entity Recognition (NEW) ----------------
+
 elif mode == "Named Entity Recognition (NER)":
     if "last_doc_text" not in st.session_state:
         st.warning("Please upload a document first in 'Upload & RAG Summary' mode.")
@@ -749,6 +736,6 @@ elif mode == "Named Entity Recognition (NER)":
             st.error("spaCy is not available. Please install it as instructed in the warning.")
 
 
-# ---------------- Footer ----------------
 st.sidebar.markdown("---")
+
 st.sidebar.write("Tip: For best RAG results, provide full article text via NewsAPI 'content' or enable newspaper library to fetch article bodies.")
